@@ -1,0 +1,11 @@
+langchain
+langchain_openai
+langchain_community
+langgraph
+ipykernel
+python-dotenv
+langchain-google-genai
+scikit-learn
+faiss-cpu 
+numpy
+pypdf
