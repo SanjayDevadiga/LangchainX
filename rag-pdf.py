@@ -6,6 +6,9 @@ from pypdf import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # === Config ===
 embedding_model = "models/gemini-embedding-exp-03-07"
 pdf_path = "public/pdf/resume.pdf"
@@ -17,8 +20,30 @@ meta_path = "public/pdf/doc_metadata.json"
 def load_pdf_chunks(pdf_path):
     reader = PdfReader(pdf_path)
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    return splitter.split_text(text)
+
+    if len(text) == 0:
+        print("Not able to read the pdf")
+        exit(0)
+
+    # print(text)
+    print(len(text))
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=10)
+
+    result = splitter.split_text(text)
+    print(len(result))
+    return result
+
+def batched_embed(embedder, texts, batch_size=10):
+    all_embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        try:
+            batch_embeddings = embedder.embed_documents(batch)
+            all_embeddings.extend(batch_embeddings)
+        except Exception as e:
+            print(f"Batch {i // batch_size + 1} failed: {e}")
+            continue
+    return np.array(all_embeddings).astype("float32")
 
 # === Step 2: Generate or Load Embeddings and Index ===
 if os.path.exists(vec_path) and os.path.exists(index_path) and os.path.exists(meta_path):
@@ -30,6 +55,7 @@ if os.path.exists(vec_path) and os.path.exists(index_path) and os.path.exists(me
 else:
     print("Reading PDF and generating embeddings...")
     doc_chunks = load_pdf_chunks(pdf_path)
+
 
     embedder = GoogleGenerativeAIEmbeddings(
         model=embedding_model, task_type="RETRIEVAL_DOCUMENT"
@@ -46,7 +72,7 @@ else:
     faiss.write_index(index, index_path)
 
 # === Step 3: Embed Query and Search ===
-query = "What was the dragon protecting?"
+query = "Explain Sanjay's experirnce in AI field?"
 query_embedder = GoogleGenerativeAIEmbeddings(
     model=embedding_model, task_type="RETRIEVAL_QUERY"
 )
